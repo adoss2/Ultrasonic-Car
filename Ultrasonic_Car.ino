@@ -12,11 +12,14 @@
   #define IN4 11
   #define ENB 6
   //Stepper macros - note, 8 through 11 are already used by wheel
-  #define ST1 1
-  #define ST2 2
-  #define ST3 3
-  #define ST4 4
-  #define STEPS_PER_REVOLUTION 64
+  #define ST1 4
+  #define ST2 10
+  #define ST3 12
+  #define ST4 13
+  #define STEPS_PER_REVOLUTION 2048
+  //There are 2048 steps, only want 180 degrees
+  //from 0 to 1024 in 32 degree increments
+  #define A_STEP 32
   
   
   int distance; //in cm
@@ -28,7 +31,6 @@
   int currentMap[32];
   //int savedMap[32];
   int tolerance = 10; //in cm
-  //Stepper myStepper(STEPS, );
   Servo myServo;
   Stepper myStepper(STEPS_PER_REVOLUTION, ST1, ST2, ST3, ST4);
   //graph stuff
@@ -63,56 +65,49 @@ void setup() {
 void loop() {
   //This is to detect from the sensor
   distance = getDistance();
-  if(distance != -1){
-    //if array is full, move all elements back one and add new value to the end
-    if(index >32){
-      //move elements back one
-      for(index = 0; index < 31; index++){
-        currentMap[index] = currentMap[index+1];
-      }
-      index = 32;
-    }
-    Serial.print("Distance in CM: ");
-    Serial.println(distance);
-    Serial.print(" ");
-    //Write to Array
-    currentMap[index] = distance;
-    index++;
-  }
-    //Turn Stepper
-    myStepper.step(1);
-    delay(100);
-    index2++; //index is the current step that the stepper is on.
-    if(index2 >= 32){
-      myStepper.step(-32);
-      delay(300);
-      
-    }
-    
-  //delay before doing it again
-  delay(upTime);
-
+  //see if the distance is too close
   if(distance < tooClose){
       stopCar();
+      //rotate 360 degrees, taking measurements, then turn to the farthest point
+      //turning clockwise
+      if(goBack)
+        for(index = 0; index < 32 ; index += 1){
+          currentMap[index] = getDistance();
+          myStepper.step(index*A_STEP);
+          delay(200);
+          stopStepper();
+        } else{ //turning counterclockwise
+          for(index = 32; index > 0 ; index -= 1){
+          currentMap[index] = getDistance();
+          myStepper.step(index*A_STEP);
+          delay(200);
+          stopStepper();
+        }
       
-     // Here we have put the code to accept an array of values, then turn until it sees the furthest distance from where it currently is from the array
-      
-      //initialize value
-      distance = getDistance();
-      //Make the ultrasound face forward, which it does at point 16
-      myStepper.step(16-index2);
-      delay(300);
-      //while loop that runs until it gets the best distance
-        while(distance < getArrayMax(currentMap)){
-        distance = getDistance();
+      //reset the stepper to default position
+
+      delay(500);
+      //Then, turn the car
+      if(goBack){ //car turns clockwise
         turnRight();
-        delay(500);
-        stopCar();
-        delay(1000);
+        while(getDistance() < getArrayMax(currentMap)){
+          delay(1); //just turns the car slowly to match furthest distance
+        }
+        stopCar(); //brief pause
+      } else{
+        turnLeft();
+        while(getDistance() < getArrayMax(currentMap)){
+          delay(1); //just turns the car slowly to match furthest distance
+        }
+        stopCar(); //brief pause
       }
-      
+      //after spinning 360 degrees, change direction of stepper
+      goBack = !goBack;
+        //then go
+        moveForward();
+      }
     } else{
-      //moveForward();
+      moveForward();
     }
     
 }
@@ -163,7 +158,7 @@ void moveBackward(void){
 }
 
 void turnLeft(void){
-  digitalWrite(ENA, HIGH);  
+  digitalWrite(ENA, 127);  
   digitalWrite(ENB, HIGH);
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
@@ -172,7 +167,7 @@ void turnLeft(void){
 }
 
 void turnRight(void){
-  digitalWrite(ENA, HIGH);  
+  digitalWrite(ENA, 127);  
   digitalWrite(ENB, HIGH);
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
@@ -220,4 +215,11 @@ bool withinRange(int firstVal, int secondVal, int precision){
     ans = false;
   }
   return ans;
+}
+
+void stopStepper(){
+  digitalWrite(ST1, LOW);
+  digitalWrite(ST2,LOW);
+  digitalWrite(ST3,LOW);
+  digitalWrite(ST4,LOW);
 }
