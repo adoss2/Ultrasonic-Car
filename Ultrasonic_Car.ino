@@ -74,19 +74,19 @@ void loop() {
         for(index = 0; index < 32 ; index += 1){
           currentMap[index] = getDistance();
           myStepper.step(index*A_STEP);
-          delay(200);
+          delay(500);
           stopStepper();
         } else{ //turning counterclockwise
           for(index = 32; index > 0 ; index -= 1){
           currentMap[index] = getDistance();
           myStepper.step(index*A_STEP);
-          delay(200);
+          delay(500);
           stopStepper();
         }
       
       //reset the stepper to default position
-
-      delay(500);
+      myStepper.step(0);
+      delay(1500);
       //Then, turn the car
       if(goBack){ //car turns clockwise
         turnRight();
